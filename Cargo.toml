@@ -1,0 +1,35 @@
+[package]
+name = "lvim-fuzzy-plugin"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The plugin host of the lvim tools (lvim-fuzzy-commander, lvim-fuzzy-cli, lvim-fuzzy-picker): plugin.toml, and the process, native (.so), WebAssembly and Lua runtimes behind one JSON interface"
+repository = "https://github.com/lvim-tech/lvim-fuzzy-plugin"
+rust-version = "1.85"
+
+[features]
+# every runtime is a feature: a tool that needs fewer builds (and links) less
+default = ["native", "wasm", "lua"]
+# (`process` needs nothing extra and is always there)
+native = ["dep:libc"]
+wasm = ["dep:wasmi", "dep:wasmi_wasi", "dep:async-trait"]
+lua = ["dep:mlua"]
+
+[dependencies]
+serde_json = "1"
+toml = "0.9"
+libc = { version = "0.2", optional = true }
+# portable-dispatch: the default dispatch relies on tail-call optimization and overflows the stack in a build without it
+wasmi = { version = "2", features = ["portable-dispatch"], optional = true }
+wasmi_wasi = { version = "2", optional = true }
+async-trait = { version = "0.1", optional = true }
+mlua = { version = "0.12", features = ["lua54", "vendored", "send"], optional = true }
+
+[[bin]]
+name = "lvim-fuzzy-plugin"
+path = "src/bin/lvim-fuzzy-plugin.rs"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1

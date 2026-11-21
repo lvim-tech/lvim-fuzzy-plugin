@@ -1,0 +1,14 @@
+[package]
+name = "lvim-rust-native"
+version = "0.1.0"
+edition = "2024"
+description = "An lvc plugin as a shared library (runtime = \"native\")"
+license = "BSD-3-Clause"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+lvim-fuzzy-plugin-api = { path = "../../../plugin-api" }
+
+[workspace]

@@ -1,0 +1,16 @@
+description = "A Rust native plugin: a .so loaded into lvc, called through a small C ABI"
+runtime = "native"
+library = "./target/release/liblvim_rust_native.so"   # build it first: cargo build --release
+
+[actions.hello]
+title = "Hello (Rust .so)"
+key = "leader N"
+call = "hello"
+
+[actions.count]
+title = "Count the marked (Rust .so)"
+call = "count"
+
+[actions.ask]
+title = "Ask a name (Rust .so)"
+call = "ask"

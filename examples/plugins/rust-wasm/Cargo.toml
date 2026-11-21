@@ -1,0 +1,19 @@
+[package]
+name = "lvim-rust-wasm"
+version = "0.1.0"
+edition = "2024"
+description = "An lvc plugin as a WebAssembly module (runtime = \"wasm\")"
+license = "BSD-3-Clause"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+lvim-fuzzy-plugin-api = { path = "../../../plugin-api" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+
+[workspace]

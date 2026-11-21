@@ -1,0 +1,22 @@
+description = "A Rust process plugin: lvc starts it once and talks JSON lines over stdin / stdout"
+runtime = "process"
+exec = "./target/release/lvim-rust-process"   # build it first: cargo build --release
+events = ["cd", "quit"]                        # optional: what it wants to hear about
+
+[actions.hello]
+title = "Hello (Rust process)"
+key = "leader H"
+call = "hello"
+
+[actions.ask]
+title = "Ask a name (Rust process)"
+key = "leader A"
+call = "ask"
+
+[actions.pick]
+title = "A menu (Rust process)"
+call = "pick"
+
+[actions.sure]
+title = "Confirm (Rust process)"
+call = "sure"

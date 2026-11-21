@@ -1,0 +1,11 @@
+[package]
+name = "lvim-rust-process"
+version = "0.1.0"
+edition = "2024"
+description = "An lvc plugin as a long-lived process (runtime = \"process\")"
+license = "BSD-3-Clause"
+
+[dependencies]
+serde_json = "1"
+
+[workspace]

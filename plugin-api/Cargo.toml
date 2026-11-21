@@ -1,0 +1,12 @@
+[package]
+name = "lvim-fuzzy-plugin-api"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "Write an lvc plugin as a shared library (runtime = \"native\") in one Rust function"
+repository = "https://github.com/lvim-tech/lvim-fuzzy-plugin"
+
+[dependencies]
+serde_json = "1"
+
+[workspace]

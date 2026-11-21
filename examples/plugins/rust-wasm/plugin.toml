@@ -1,0 +1,21 @@
+description = "A Rust WebAssembly plugin: sandboxed, fuel-limited, sees the two panel directories read-only"
+runtime = "wasm"
+module = "./target/wasm32-wasip1/release/lvim_rust_wasm.wasm"   # cargo build --release --target wasm32-wasip1
+# allow_write = true     # the module may then change files in the panels' directories
+
+[actions.hello]
+title = "Hello (Rust wasm)"
+key = "leader W"
+call = "hello"
+
+[actions.count]
+title = "Count the entries of this directory (Rust wasm)"
+call = "count"
+
+[actions.write]
+title = "Try to write a file here (refused unless allow_write)"
+call = "write"
+
+[actions.spin]
+title = "Loop for ever (stopped by the fuel limit)"
+call = "spin"

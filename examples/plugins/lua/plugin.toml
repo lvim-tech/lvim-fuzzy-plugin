@@ -1,0 +1,25 @@
+description = "A Lua plugin: init.lua runs in an embedded Lua 5.4, its functions are the actions"
+runtime = "lua"
+# script = "init.lua"        # the default
+
+[actions.hello]
+title = "Hello (Lua)"
+key = "leader U"
+call = "hello"
+
+[actions.ask]
+title = "Ask a name (Lua)"
+call = "ask"
+
+[actions.git]
+title = "git status of this directory (Lua, in the background)"
+key = "leader J"
+call = "git_status"
+
+[actions.pick]
+title = "A menu (Lua)"
+call = "pick"
+
+[actions.spin]
+title = "Loop for ever (stopped by the instruction limit)"
+call = "spin"
