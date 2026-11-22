@@ -17,7 +17,7 @@ lua = ["dep:mlua"]
 
 [dependencies]
 serde_json = "1"
-toml = "0.9"
+toml = { version = "0.9", features = ["preserve_order"] }
 libc = { version = "0.2", optional = true }
 # portable-dispatch: the default dispatch relies on tail-call optimization and overflows the stack in a build without it
 wasmi = { version = "2", features = ["portable-dispatch"], optional = true }

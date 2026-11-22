@@ -92,6 +92,14 @@ pub fn engine_for(path: &Path, cfg: &Value) -> Option<(String, String)> {
 /// engine that runs a program — whether that program is installed. `builtin` are the engines that need no
 /// definition, each with the program it runs, if any (`("system", Some("xdg-open"))`); `have` says whether a
 /// program is installed. A group naming an engine that exists nowhere is marked.
+/// The engines a plugin says need no definition (`builtin_engines` of its `[config]`: `[name, program or ""]` each).
+pub fn builtin_engines(cfg: &Value) -> Vec<(String, Option<String>)> {
+    cfg["builtin_engines"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|e| Some((e.get(0)?.as_str()?.to_string(), e.get(1).and_then(Value::as_str).filter(|p| !p.is_empty()).map(str::to_string)))).collect())
+        .unwrap_or_default()
+}
+
 pub fn list(cfg: &Value, builtin: &[(&str, Option<&str>)], have: &dyn Fn(&str) -> bool) -> String {
     let all = groups(cfg);
     let name_w = all.iter().map(|g| g.name.chars().count()).max().unwrap_or(0);

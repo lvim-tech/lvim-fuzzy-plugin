@@ -12,8 +12,6 @@ use serde_json::{Value, json};
 
 use crate::host::{Host, Out};
 
-/// The name the plugin is installed under.
-pub const PLUGIN: &str = "lvim-fuzzy-plugin-remote";
 
 /// One entry of a remote directory, as the plugin gives it.
 #[derive(Clone, Debug, PartialEq)]
@@ -88,6 +86,8 @@ pub fn remote_names(answer: &Value) -> Vec<RemoteName> {
 /// The client: a [`Host`] that talks to the remote plugin only.
 pub struct Remote {
     host: Host,
+    /// The plugin that serves places: the one whose `plugin.toml` says `places = true` (empty: none installed).
+    provider: String,
     /// Mistakes found while loading (broken manifests, broken override files).
     pub problems: Vec<String>,
     /// The calls on their way: id → what was asked (for the tool's own bookkeeping, `tag`).
@@ -100,21 +100,22 @@ impl Remote {
     /// override file in the first root and `host_plugins` (this tool's `[plugins]` table).
     pub fn load(roots: &[PathBuf], host: &str, host_plugins: &toml::Table, wake: Sender<()>) -> Remote {
         let (manifests, mut problems) = crate::manifest::load_roots(roots, host);
+        let provider = manifests.iter().find(|m| m.table.get("places").and_then(toml::Value::as_bool) == Some(true)).map(|m| m.def.name.clone()).unwrap_or_default();
         let mut h = Host::new(manifests.into_iter().map(|m| m.def).collect(), wake);
         if let Some(root) = roots.first() {
             problems.extend(h.configure_all(root, host_plugins));
         }
-        Remote { host: h, problems, tags: HashMap::new(), next_tag: 1 }
+        Remote { host: h, provider, problems, tags: HashMap::new(), next_tag: 1 }
     }
 
     /// Is the remote plugin there (installed for this tool)?
     pub fn available(&self) -> bool {
-        self.host.def(PLUGIN).is_some()
+        !self.provider.is_empty() && self.host.def(&self.provider).is_some()
     }
 
     /// The plugin's settings as the tools hand them to a transfer (`LVIM_FUZZY_REMOTE_CONFIG`).
     pub fn config(&self) -> Value {
-        self.host.config_of(PLUGIN)
+        self.host.config_of(&self.provider)
     }
 
     /// Start a call (`list`, `stat`, `mkdir`, `rm`, `mv`, `cat`, `remotes`); the answer comes out of [`Remote::poll`] under the
@@ -124,7 +125,7 @@ impl Remote {
             ctx = json!({});
         }
         ctx["call"] = op.into();
-        let id = self.host.call(PLUGIN, op, ctx, &[])?;
+        let id = self.host.call(&self.provider.clone(), op, ctx, &[])?;
         let tag = self.next_tag;
         self.next_tag += 1;
         self.tags.insert(id, tag);
@@ -144,7 +145,7 @@ impl Remote {
                 Out::Failed { id: Some(id), text } => {
                     let Some(tag) = self.tags.remove(&id) else { continue };
                     // the host names the plugin in front; the reason is what follows
-                    let reason = text.strip_prefix(&format!("{PLUGIN}: ")).unwrap_or(&text).to_string();
+                    let reason = text.strip_prefix(&format!("{}: ", self.provider)).unwrap_or(&text).to_string();
                     out.push((tag, Err(reason)));
                 }
                 _ => {}
@@ -178,6 +179,8 @@ impl Remote {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const PLUGIN: &str = "lvim-fuzzy-plugin-remote";
     use std::sync::mpsc::channel;
 
     /// A remote plugin in a shell script: it answers `list` with one entry named after the remote, anything else with `done`.
@@ -200,7 +203,7 @@ done
 "#,
         )
         .unwrap();
-        std::fs::write(d.join("plugin.toml"), "runtime = \"process\"\nexec = \"sh run.sh\"\n[config]\ntimeout = 5\n").unwrap();
+        std::fs::write(d.join("plugin.toml"), "places = true\nruntime = \"process\"\nexec = \"sh run.sh\"\n[config]\ntimeout = 5\n").unwrap();
     }
 
     #[test]
