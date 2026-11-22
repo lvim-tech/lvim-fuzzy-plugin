@@ -13,6 +13,50 @@ use std::path::Path;
 pub const MARKER: &str = "# bundled-version: ";
 const EXEC_MARKER: &str = "# bundled-exec: ";
 
+/// What a tool's config says about a plugin that ships inside it: `[plugins.<name>] install = …`. Nothing is installed by itself.
+///
+/// - not there (or `false`): the tool does not install it — a plugin of that name that is installed otherwise (a build of its own, a
+///   copy in the plugins directory) is used as it is;
+/// - `true` or `"bundled"`: the tool writes the plugin's `plugin.toml` with `exec` pointing at itself;
+/// - `"/path/to/program"`: the same, with that program (a build of the plugin's own, or another tool) answering as the plugin.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Install {
+    No,
+    Bundled,
+    Program(std::path::PathBuf),
+}
+
+/// The `install` key of `[plugins.<name>]` in `plugins` (a tool's `[plugins]` table).
+pub fn install_of(plugins: &toml::Table, name: &str) -> Install {
+    match plugins.get(name).and_then(toml::Value::as_table).and_then(|t| t.get("install")) {
+        Some(toml::Value::Boolean(true)) => Install::Bundled,
+        Some(toml::Value::String(s)) if s == "bundled" => Install::Bundled,
+        Some(toml::Value::String(s)) if !s.trim().is_empty() => {
+            let p = s.trim();
+            let p = match p.strip_prefix("~/") {
+                Some(rest) => std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(rest),
+                None => std::path::PathBuf::from(p),
+            };
+            Install::Program(p)
+        }
+        _ => Install::No,
+    }
+}
+
+/// Do what the config says for the plugin `name`: `ensure(root, program)` writes its manifest for `program` (the running tool for
+/// `"bundled"`, the given one otherwise); nothing at all when the config says nothing.
+pub fn install_configured(root: &Path, plugins: &toml::Table, name: &str, ensure: fn(&Path, &Path)) {
+    match install_of(plugins, name) {
+        Install::No => {}
+        Install::Bundled => {
+            if let Ok(me) = std::env::current_exe() {
+                ensure(root, &me);
+            }
+        }
+        Install::Program(p) => ensure(root, &p),
+    }
+}
+
 /// A plugin that ships inside a tool.
 pub struct Bundled<'a> {
     pub name: &'a str,
@@ -94,6 +138,25 @@ pub fn retire(root: &Path, old_name: &str) -> Result<bool, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_config_decides_whether_a_bundled_plugin_is_installed() {
+        let t: toml::Table = toml::from_str(
+            "[a]\ninstall = \"bundled\"\n[b]\ninstall = true\n[c]\ninstall = \"/opt/p\"\n[d]\ninstall = false\n[e]\nother = 1\n",
+        )
+        .unwrap();
+        assert_eq!(install_of(&t, "a"), Install::Bundled);
+        assert_eq!(install_of(&t, "b"), Install::Bundled);
+        assert_eq!(install_of(&t, "c"), Install::Program("/opt/p".into()));
+        assert_eq!(install_of(&t, "d"), Install::No);
+        assert_eq!(install_of(&t, "e"), Install::No);
+        assert_eq!(install_of(&t, "missing"), Install::No);
+        // nothing is written for what the config does not ask for
+        fn mark(_: &Path, _: &Path) {
+            panic!("not asked for");
+        }
+        install_configured(Path::new("/nonexistent"), &t, "e", mark);
+    }
+
     use super::*;
 
     const MANIFEST: &str = "description = \"x\"\nruntime = \"process\"\nexec        = \"./target/release/p\"\nbuild       = \"cargo build\"\n[preview.any]\npriority = 5\n";

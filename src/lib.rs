@@ -12,6 +12,7 @@
 //!
 //! Every runtime but `process` is a cargo feature (`native`, `wasm`, `lua`; all on by default).
 
+pub mod askpass;
 pub mod bundled;
 pub mod config;
 pub mod host;

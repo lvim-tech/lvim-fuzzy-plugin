@@ -157,6 +157,14 @@ impl Host {
         let mut out = Vec::new();
         while let Ok(m) = self.rx.try_recv() {
             match m {
+                Msg::Keepalive { plugin, generation, id, secs } => {
+                    // a call that waits for a person (a passphrase prompt) is given the time it asked for, from now
+                    if self.procs.get(&plugin).is_some_and(|p| p.generation == generation)
+                        && let Some(p) = self.pending.get_mut(&id)
+                    {
+                        p.until = Instant::now() + Duration::from_secs(secs.min(3600));
+                    }
+                }
                 Msg::Reply { plugin, generation, id, result } => {
                     // a late answer of an older start, or to a call given up on, is dropped
                     if self.procs.get(&plugin).is_none_or(|p| p.generation != generation) {

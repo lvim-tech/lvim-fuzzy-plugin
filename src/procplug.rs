@@ -25,6 +25,8 @@ use serde_json::Value;
 pub enum Msg {
     /// An answer: the request `id`, and its instructions as JSON text (or the error the plugin gave).
     Reply { plugin: String, generation: u64, id: u64, result: Result<String, String> },
+    /// The plugin says the call is waiting for a person (a passphrase prompt): the host gives it `secs` more seconds from now.
+    Keepalive { plugin: String, generation: u64, id: u64, secs: u64 },
     /// The process ended (its stdout closed).
     Died { plugin: String, generation: u64 },
     /// Something a Lua plugin did on its own (a `lvc.run` callback): instructions as JSON text.
@@ -68,7 +70,10 @@ impl Proc {
         std::thread::spawn(move || {
             for line in BufReader::new(stdout).lines() {
                 let Ok(line) = line else { break };
-                if let Some((id, result)) = parse_reply(&line) {
+                if let Some((id, secs)) = parse_keepalive(&line) {
+                    let _ = out.send(Msg::Keepalive { plugin: name.clone(), generation, id, secs });
+                    let _ = wake.send(());
+                } else if let Some((id, result)) = parse_reply(&line) {
                     let _ = out.send(Msg::Reply { plugin: name.clone(), generation, id, result });
                     let _ = wake.send(());
                 }
@@ -122,6 +127,15 @@ pub fn event(params: &Value) -> String {
 
 /// `{"id":1,"result":[...]}` → (1, Ok(the result as JSON text)); `{"id":1,"error":"x"}` → (1, Err("x")).
 /// Anything else (no id, not JSON) is ignored.
+/// `{"id":N,"keepalive":SECS}`: a call that waits for a person asks for more time (it is no answer).
+pub fn parse_keepalive(line: &str) -> Option<(u64, u64)> {
+    let v: Value = serde_json::from_str(line.trim()).ok()?;
+    if v.get("result").is_some() || v.get("error").is_some() {
+        return None;
+    }
+    Some((v.get("id")?.as_u64()?, v.get("keepalive")?.as_u64()?))
+}
+
 pub fn parse_reply(line: &str) -> Option<(u64, Result<String, String>)> {
     let v: Value = serde_json::from_str(line.trim()).ok()?;
     let id = v.get("id")?.as_u64()?;
@@ -142,6 +156,8 @@ mod tests {
     fn replies() {
         assert_eq!(parse_reply(r#"{"id":3,"result":[{"op":"reload"}]}"#), Some((3, Ok(r#"[{"op":"reload"}]"#.into()))));
         assert_eq!(parse_reply(r#"{"id":4,"error":"boom"}"#), Some((4, Err("boom".into()))));
+        assert_eq!(parse_keepalive(r#"{"id":6,"keepalive":120}"#), Some((6, 120)));
+        assert_eq!(parse_keepalive(r#"{"id":6,"result":[]}"#), None);
         assert_eq!(parse_reply(r#"{"id":5}"#), Some((5, Ok("null".into()))));
         assert_eq!(parse_reply("not json"), None);
         assert_eq!(parse_reply(r#"{"result":[]}"#), None);

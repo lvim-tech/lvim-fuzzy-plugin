@@ -156,7 +156,9 @@ impl Remote {
     /// [`Remote::call`] and WAIT for the answer.
     pub fn ask(&mut self, op: &str, ctx: Value, timeout: Duration) -> Result<Value, String> {
         let tag = self.call(op, ctx)?;
-        let until = std::time::Instant::now() + timeout;
+        // the host answers or gives up by itself (after its own time, longer while the plugin waits for a person); `timeout` is only the
+        // most that is waited for a call that nothing ends
+        let until = std::time::Instant::now() + timeout.max(Duration::from_secs(900));
         loop {
             if let Some((_, r)) = self.poll().into_iter().find(|(t, _)| *t == tag) {
                 return r;
