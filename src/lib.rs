@@ -20,6 +20,7 @@ pub mod manifest;
 pub mod previewer;
 pub mod provider;
 pub mod procplug;
+pub mod remote;
 pub mod types;
 
 #[cfg(feature = "lua")]
@@ -32,6 +33,7 @@ pub mod wasm;
 pub use host::{Host, Out};
 pub use manifest::{EVENTS, Manifest, PluginDef, default_root};
 pub use previewer::{Previewer, Reply};
+pub use remote::{Remote, RemoteEntry, RemoteName};
 pub use provider::{FileInfo, Provider, Registry, have, missing_requires};
 
 /// How a plugin's `call` actions are executed.
