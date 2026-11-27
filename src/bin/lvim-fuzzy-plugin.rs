@@ -21,6 +21,7 @@
 //! → {"id":1,"method":"list"}                                   ← {"id":1,"result":[{name, runtime, ..., "tables":{..}}]}
 //! → {"id":2,"method":"call","plugin":"x","call":"f","params":{..},"dirs":["/a"]}
 //!                                                              ← {"id":2,"result":[instructions]} | {"id":2,"error":"text"}
+//! → {"id":3,"method":"config","plugin":"x"}                      ← {"id":3,"result":{the plugin's effective settings}}
 //! → {"method":"quit"}                                          (quit events go out, then it exits)
 //!                                  ← {"event":"answer","plugin":"x","result":[..]}   what a plugin did on its own
 //!                                  ← {"event":"error","text":".."}
@@ -228,7 +229,21 @@ fn to_json_text(text: &str) -> Value {
 }
 
 fn host(args: &[String]) -> i32 {
-    let (root, tool, _) = options(args);
+    let (root, tool, rest) = options(args);
+    // `--plugins JSON`: the asking tool's own settings per plugin (the `[plugins.<name>]` of its config), as a JSON object
+    let mut own = toml::Table::new();
+    let mut it = rest.iter();
+    while let Some(a) = it.next() {
+        if a == "--plugins" {
+            match it.next().map(|v| serde_json::from_str::<toml::Table>(v)) {
+                Some(Ok(t)) => own = t,
+                _ => {
+                    eprintln!("lvim-plugin: --plugins takes a JSON object: {{\"<plugin>\": {{...}}}}");
+                    return 2;
+                }
+            }
+        }
+    }
     let (mans, errs) = load(&root, &tool);
     for e in &errs {
         eprintln!("lvim-plugin: {e}");
@@ -263,6 +278,10 @@ fn host(args: &[String]) -> i32 {
         });
     }
     let mut host = Host::new(mans.into_iter().map(|m| m.def).collect(), wake_tx);
+    // each plugin's settings: its defaults, the shared override file, then this tool's own
+    for e in host.configure_all(&root, &own) {
+        eprintln!("lvim-plugin: {e}");
+    }
     let mut ids: HashMap<u64, Value> = HashMap::new();
     let say = |v: Value| {
         use std::io::Write;
@@ -277,6 +296,11 @@ fn host(args: &[String]) -> i32 {
             let id = req.get("id").cloned().unwrap_or(Value::Null);
             match req["method"].as_str() {
                 Some("list") => say(json!({"id": id, "result": listing})),
+                // the plugin's effective settings (defaults + the shared override + this tool's): what a stand-alone job of it needs
+                Some("config") => match req["plugin"].as_str() {
+                    Some(p) => say(json!({"id": id, "result": host.config_of(p)})),
+                    None => say(json!({"id": id, "error": "config needs `plugin`"})),
+                },
                 Some("call") => {
                     let (Some(plugin), Some(call)) = (req["plugin"].as_str(), req["call"].as_str()) else {
                         say(json!({"id": id, "error": "call needs `plugin` and `call`"}));
