@@ -17,6 +17,7 @@ pub mod config;
 pub mod host;
 pub mod install;
 pub mod manifest;
+pub mod modes;
 pub mod previewer;
 pub mod provider;
 pub mod procplug;
@@ -32,6 +33,7 @@ pub mod wasm;
 
 pub use host::{Host, Out};
 pub use manifest::{EVENTS, Manifest, PluginDef, default_root};
+pub use modes::Modes;
 pub use previewer::{Previewer, Reply};
 pub use remote::{Remote, RemoteEntry, RemoteName};
 pub use provider::{FileInfo, Provider, Registry, have, missing_requires};

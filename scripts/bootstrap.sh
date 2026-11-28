@@ -5,12 +5,12 @@
 #
 #   sh bootstrap.sh [part ...]
 #
-# parts:  host            lvim-plugin, the plugin host (git, remote, devices, preview, open are served through it)
-#         git remote devices preview open     the plugins (each: its program in ~/.local/bin, its plugin.toml in ~/.config/lvim-plugins/)
-#         cli             lvim-fuzzy-cli (lfz): the Neovim picker's modes come from it
+# parts:  host            lvim-plugin, the plugin host (git, remote, devices, preview, open, modes are served through it)
+#         git remote devices preview open modes     the plugins (each: its program in ~/.local/bin, its plugin.toml in ~/.config/lvim-plugins/)
+#         cli             lvim-fuzzy-cli (lfz), with the modes plugin it takes its modes from (the Neovim picker's modes come from lfz)
 #         commander-host  lvim-commander-host: the core the Neovim commander runs
 #         commander       lvim-fuzzy-commander (lvc)
-#   default: host git remote devices preview open
+#   default: host git remote devices preview open modes
 #
 # PREFIX (default ~/.local) is where programs go; LVIM_SRC (default ~/.local/share/lvim-tech/src) is where the sources are cloned to.
 set -e
@@ -47,16 +47,22 @@ program() {
     echo "installed: $bin/${3:-$2}"
 }
 
-[ $# -gt 0 ] || set -- host git remote devices preview open
+[ $# -gt 0 ] || set -- host git remote devices preview open modes
 for part in "$@"; do
     case "$part" in
         host) program lvim-fuzzy-plugin lvim-fuzzy-plugin lvim-plugin ;;
-        git | remote | devices | preview | open)
+        git | remote | devices | preview | open | modes)
             d=$(checkout "lvim-fuzzy-plugin-$part")
             echo "== lvim-fuzzy-plugin-$part"
             XDG_BIN_HOME="$bin" sh "$d/scripts/install.sh"
             ;;
-        cli) program lvim-fuzzy-cli lvim-fuzzy-cli ;;
+        cli)
+            program lvim-fuzzy-cli lvim-fuzzy-cli
+            # lfz has no modes of its own: they are the modes plugin's
+            d=$(checkout lvim-fuzzy-plugin-modes)
+            echo "== lvim-fuzzy-plugin-modes"
+            XDG_BIN_HOME="$bin" sh "$d/scripts/install.sh"
+            ;;
         commander-host) program lvim-fuzzy-commander-core lvim-commander-host ;;
         commander)
             d=$(checkout lvim-fuzzy-commander)
